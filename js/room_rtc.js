@@ -12,6 +12,12 @@ let uid = String(Math.floor(Math.random() * 10000));
 //during production it can be set to a value
 let token = null;
 let client;
+
+// for chatting
+
+let rtmClient;
+let channel;
+
 //getting room from the url
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
@@ -19,7 +25,13 @@ let roomId = urlParams.get("room");
 
 //if no room id then gv a default room id
 if (!roomId) {
-	roomId = "main";
+	window.location = `lobby.html`;
+}
+
+// if no display name then redirect to lobby
+let displayName = localStorage.getItem("display_name");
+if (!displayName) {
+	window.location = `lobby.html`;
 }
 
 // this gives the local stream
@@ -32,6 +44,20 @@ let sharingScreen = false;
 
 // when the user joins the room
 let joinRoomInit = async () => {
+	// init RTM features
+	rtmClient = await AgoraRTM.createInstance(APP_ID);
+	await rtmClient.login({ uid, token });
+
+	await rtmClient.addOrUpdateLocalUserAttributes({ name: displayName });
+
+	channel = await rtmClient.createChannel(roomId);
+	await channel.join();
+
+	channel.on("MemberJoined", handleMemberJoined);
+	channel.on("MemberLeft", handleMemberLeft);
+
+	getMembers();
+
 	client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 	await client.join(APP_ID, roomId, token, uid);
 
